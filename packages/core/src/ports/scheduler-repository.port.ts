@@ -17,11 +17,18 @@ export interface SchedulerRepositoryPort {
 
   markPublished(postId: string, externalId: string): Promise<void>;
 
+  /**
+   * opts.retryDelayMs (solo relevante si retryable=true) empuja scheduled_at hacia adelante en
+   * vez de dejarlo en el pasado — así el post no vuelve a ser candidato en el siguiente ciclo
+   * de claim antes de que pase ese tiempo. Es cómo se traduce "no avances la cabeza de cola de
+   * ese Embajador" tras un 429: el propio dato dice cuándo puede reintentarse, no hace falta
+   * que el worker se quede esperando en memoria.
+   */
   markFailed(
     postId: string,
     errorCode: string,
     errorMessage: string,
-    opts: { retryable: boolean }
+    opts: { retryable: boolean; retryDelayMs?: number }
   ): Promise<void>;
 
   /**
