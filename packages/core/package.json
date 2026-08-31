@@ -5,5 +5,16 @@
   "type": "module",
   "description": "Dominio y puertos hexagonales, sin dependencia de Next.js ni de Postgres. app/ y worker/ implementan los adaptadores.",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "luxon": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.4.2",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.11"
+  }
 }
