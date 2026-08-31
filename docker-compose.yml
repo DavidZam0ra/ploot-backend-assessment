@@ -1,0 +1,45 @@
+version: "3.9"
+
+# TODO: servicios app (Next.js), worker, postgres y mock del proveedor.
+# Objetivo del enunciado: `docker compose up` completo en < 60 s en una máquina limpia.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ploot
+      POSTGRES_PASSWORD: ploot
+      POSTGRES_DB: ploot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ploot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # app:
+  #   build: ./app
+  #   ports:
+  #     - "3000:3000"
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # worker:
+  #   build: ./worker
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # provider-mock:
+  #   build: ./app/mock-provider
+  #   ports:
+  #     - "4000:4000"
+
+volumes:
+  pgdata:

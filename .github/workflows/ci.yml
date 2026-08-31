@@ -1,0 +1,16 @@
+name: CI
+
+# TODO (Parte B.2): qué corre en PR (incl. preview deploys), qué al mergear a main,
+# qué bloquea producción, aprobación manual y rollback automático.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "TODO: lint, typecheck, test"
