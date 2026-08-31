@@ -172,11 +172,18 @@ importan más que los unitarios aislados):
 
 ## Qué falta, en el orden de prioridad que marca el propio PDF
 
-1. **Despliegue público** — no empezado. Elegir host (Vercel para `app/`, un contenedor para
-   `worker/` y `provider-mock/`, Postgres gestionado — Neon/Supabase tienen capa gratuita),
-   justificar en el PDF con coste de orden de magnitud a 5k tenants. `worker/` corre con
-   `tsx src/main.ts` (ver `DECISIONS.md` #12) — cualquier host de contenedores vale, no necesita
-   build compilado.
+1. **Despliegue público** — en curso (ver `DECISIONS.md` #19):
+   - ✅ Postgres: proyecto real en Supabase (`eu-central-1`), esquema + `app_role`/`worker_role`
+     aplicados contra la conexión real (mismos scripts de siempre, sin SQL nuevo).
+   - ✅ `app/`: proyecto Vercel creado y enlazado al repo (`main` = producción, intacta;
+     `assessment` se despliega como preview — no se mergea, per enunciado).
+     `DATABASE_URL`/`JWT_SECRET` puestos como env vars *Secret* en Vercel para `Production` +
+     la rama `assessment`.
+   - ⬜ Confirmar que el preview de Vercel sirve tráfico real de punta a punta contra Supabase
+     (pendiente en el momento de escribir esto — falta el push que dispara el build con las
+     env vars ya puestas).
+   - ⬜ `worker/` + `provider-mock/` en Fly.io — pendiente, a la espera de `FLY_API_TOKEN`.
+   - Justificación de coste a 5k tenants: pendiente para la Parte B del PDF (no en el repo).
 2. **UI mínima de demostración** — no empezada (`app/src/app/page.tsx` es solo un placeholder).
    No se evalúa el diseño, solo que sea una ventana real al backend (lista de posts casi en
    tiempo real con polling, crear/programar, botón "publicar ahora", transiciones de estado

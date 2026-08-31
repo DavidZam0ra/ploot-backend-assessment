@@ -6,7 +6,13 @@ Scheduler de publicación para una plataforma de signal-based selling. Next.js (
 
 ## URL pública
 
-TODO — pendiente de despliegue (ver Parte C del enunciado).
+- `app/` (Next.js): desplegado en Vercel, enlazado a este repo (`main` es la rama de producción,
+  intacta; el preview de la rama `assessment` es la URL real de esta prueba — ver
+  `HANDOFF.md`/`DECISIONS.md` #19 para la URL exacta y por qué está en preview y no en producción).
+- Postgres: Supabase (Frankfurt, `eu-central-1`), esquema + roles (`app_role`/`worker_role`)
+  aplicados contra la conexión real, vía el pooler (Supavisor) en modo transacción — compatible
+  con el `SET LOCAL app.tenant_id` por transacción que usa `PostgresPostRepository`.
+- `worker/` + `provider-mock/`: pendiente (ver `HANDOFF.md`).
 
 ## Repositorio
 
