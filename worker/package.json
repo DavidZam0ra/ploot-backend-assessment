@@ -8,7 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ploot/core": "*",
+    "@ploot/core": "workspace:*",
     "pg": "^8.11.5"
   },
   "devDependencies": {

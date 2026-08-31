@@ -1,9 +1,4 @@
 {
   "name": "ploot-backend-assessment",
-  "private": true,
-  "workspaces": [
-    "app",
-    "worker",
-    "packages/*"
-  ]
+  "private": true
 }
