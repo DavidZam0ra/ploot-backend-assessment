@@ -33,6 +33,17 @@ describe("PostgresPostRepository — dentro del propio tenant", () => {
     expect(found?.id).toBe(created.id);
   });
 
+  it("update() con scheduledAt en un draft lo pasa a scheduled (así funciona 'publicar ahora')", async () => {
+    const tenantId = await seedTenant(admin);
+    const profileId = await seedProfile(admin, tenantId);
+    const created = await repo.create({ tenantId, profileId, content: "hola", scheduledAt: null });
+    expect(created.status).toBe("draft");
+
+    const updated = await repo.update(tenantId, created.id, { scheduledAt: new Date() });
+    expect(updated.status).toBe("scheduled");
+    expect(updated.scheduledAt).not.toBeNull();
+  });
+
   it("update() en un post published lanza PostNotEditableError", async () => {
     const tenantId = await seedTenant(admin);
     const profileId = await seedProfile(admin, tenantId);

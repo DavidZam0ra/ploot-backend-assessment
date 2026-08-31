@@ -75,6 +75,20 @@ cp .env.example .env   # y rellena TOKEN_ENCRYPTION_KEY con:
 pnpm start
 ```
 
+Arrancar la API (`app/`, Next.js dev server):
+
+```bash
+cd app
+cp .env.example .env   # DATABASE_URL con app_role + el puerto correcto, y JWT_SECRET (cualquier
+                        # string en local, ver src/auth/jwt.ts)
+pnpm dev
+```
+
+No hay IdP: los JWT de prueba se firman a mano con `signTestToken` (`app/src/auth/jwt.ts`) —
+desde un script/REPL de Node con `tsx`, o añadiendo un endpoint de test temporal si hace falta
+probar por `curl` sin escribir código. El claim `tenant_id` del token, no el body, es lo que
+decide a qué tenant pertenece cada request.
+
 ## Qué hay hecho (todo commiteado, ver `git log --oneline` para el detalle exacto de cada uno)
 
 1. **Esquema Postgres + `packages/core`** (dominio y puertos hexagonales, sin Next.js ni
@@ -114,6 +128,19 @@ pnpm start
    garantía real la da RLS (`db/migrations/0001_init.sql`). 22 tests, 6 de ellos probando
    rechazo cross-tenant a nivel SQL de verdad (incluido un `INSERT` con `tenant_id` ajeno
    rechazado por Postgres mismo, y "sin tenant fijado no se ve nada").
+9. **Corrección DST para `Europe/Madrid`** (`packages/core/src/time/zoned-time.ts`, sobre
+   `luxon`): 12 tests, incluidos los dos bordes ambiguos del cambio de hora (hueco de primavera
+   rechazado, hora ambigua de otoño resuelta a la primera ocurrencia) y round-trip completo.
+10. **API HTTP** (`app/`, Next.js App Router scaffolded): Route Handlers
+    `POST/GET /api/v1/posts`, `PATCH/DELETE /api/v1/posts/:id`, `POST /api/v1/posts/:id/publish`.
+    Auth JWT HS256 de prueba (`jose`, sin IdP) con `tenant_id`/`profile_id` como claims —
+    `src/auth/`. "Publicar ahora" solo adelanta `scheduled_at` a `now()`, nunca llama al
+    proveedor directamente (eso lo sigue haciendo solo el worker). Probado de punta a punta por
+    HTTP real contra `next dev`: crear, listar, publicar ahora, cancelar, y aislamiento
+    cross-tenant confirmado (404 sin filtrar que el post existe).
+11. **Idempotencia en `POST /publish`**: `PostgresIdempotencyStore` implementa `IdempotencyPort`
+    contra `app_role` (`INSERT ... ON CONFLICT DO NOTHING RETURNING` como primitiva atómica). 4
+    tests de integración, incluida una prueba de dos `reserve()` concurrentes con la misma clave.
 
 **Bugs reales encontrados y arreglados al conectar piezas** (ver `DECISIONS.md` #11 para el
 detalle — vale la pena leerlo, ilustra por qué los tests de integración de extremo a extremo
@@ -133,34 +160,19 @@ importan más que los unitarios aislados):
 
 ## Qué falta, en el orden de prioridad que marca el propio PDF
 
-1. **Test de corrección DST para `Europe/Madrid`** — no empezado. Rápido y autocontenido (no
-   depende de nada más de esta lista), buen primer paso si se retoma con poco margen.
-2. **API de Next.js (Route Handlers)** — no empezada. `app/` todavía no tiene Next.js scaffolded,
-   solo el adaptador de repositorio (`PostgresPostRepository`) y sus tests. Falta:
-   - `npx create-next-app@latest` (TypeScript + App Router) dentro de `app/`, integrándolo con lo
-     que ya existe (`src/adapters/`, `src/mappers/`) sin romper los tests actuales.
-   - Auth JWT con `tenant_id` + `profile_id` (JWTs de prueba, firmados por nosotros, sin IdP) —
-     un Route Handler/middleware que decodifica el JWT y llama a `PostgresPostRepository` con el
-     `tenantId` correcto.
-   - Endpoints: `POST /api/v1/posts`, `PATCH /api/v1/posts/:id`, `DELETE /api/v1/posts/:id`,
-     `POST /api/v1/posts/:id/publish` (con `Idempotency-Key`), `GET /api/v1/posts?status=&limit=&cursor=`.
-   - `PostRepositoryPort.cancel()` ya existe pero el enunciado pide `DELETE` para cancelar — el
-     Route Handler solo necesita llamarlo, la lógica de "rechazado si published" ya está.
-3. **Idempotencia en `POST /publish`** — `IdempotencyPort` ya está en `packages/core`, y
-   `idempotency_keys` ya existe en el esquema (`db/migrations/0001_init.sql`). Falta implementar
-   el adaptador Postgres y conectarlo al Route Handler de publish.
-4. **Despliegue público** — no empezado. Elegir host (Vercel para `app/`, un contenedor para
+1. **Despliegue público** — no empezado. Elegir host (Vercel para `app/`, un contenedor para
    `worker/` y `provider-mock/`, Postgres gestionado — Neon/Supabase tienen capa gratuita),
    justificar en el PDF con coste de orden de magnitud a 5k tenants. `worker/` corre con
    `tsx src/main.ts` (ver `DECISIONS.md` #12) — cualquier host de contenedores vale, no necesita
    build compilado.
-5. **`docker-compose.yml` completo** — de momento solo tiene `postgres` y `provider-mock`
+2. **`docker-compose.yml` completo** — de momento solo tiene `postgres` y `provider-mock`
    funcionando. Faltan los servicios `app` y `worker` (hay placeholders comentados en el
    fichero). El objetivo del enunciado es `docker compose up` completo en <60s en máquina limpia.
-6. **UI mínima de demostración** — no empezada. No se evalúa el diseño, solo que sea una ventana
-   real al backend (lista de posts casi en tiempo real con polling, crear/programar, botón
-   "publicar ahora", transiciones de estado visibles, por qué de los `failed`/esperas).
-7. **Las partes escritas del PDF** (van en un PDF aparte, no en el repo) — no tocadas en esta
+3. **UI mínima de demostración** — no empezada (`app/src/app/page.tsx` es solo un placeholder).
+   No se evalúa el diseño, solo que sea una ventana real al backend (lista de posts casi en
+   tiempo real con polling, crear/programar, botón "publicar ahora", transiciones de estado
+   visibles, por qué de los `failed`/esperas). Ya puede consumir la API real de `app/`.
+4. **Las partes escritas del PDF** (van en un PDF aparte, no en el repo) — no tocadas en esta
    sesión de código: Parte A (diseño de sistema), Parte B (despliegue y operación), Parte D
    (elige 1 de 3 escenarios de incidente), Parte E (tabla de `DECISIONS.md` trasladada + una
    pregunta de visión de producto + 3 líneas de qué IA se usó). Esto es ~80 de los 180 minutos
@@ -184,5 +196,8 @@ importan más que los unitarios aislados):
 - Nunca hacer `git push` sin pedirlo explícitamente; sí hacer commit al cerrar cada pieza.
 
 ---
-Última actualización: pieza completada hasta "Aislamiento de tenant a nivel SQL" (commit
-`de2aadc`). Se sigue actualizando este documento después de cada pieza nueva.
+Última actualización: piezas completadas hasta idempotencia en `POST /publish` (API HTTP +
+auth JWT + idempotencia, ver `DECISIONS.md` #16-17) — 89/89 tests en verde, probado también de
+punta a punta por HTTP real contra `next dev` (crear, listar, publicar ahora, cancelar,
+aislamiento cross-tenant). Aún sin commitear en el momento de escribir esto. Se sigue
+actualizando este documento después de cada pieza nueva.

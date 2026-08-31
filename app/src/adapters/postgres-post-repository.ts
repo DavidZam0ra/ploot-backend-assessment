@@ -9,8 +9,8 @@ import {
   type PostRepositoryPort,
   type UpdatePostInput,
 } from "@ploot/core";
-import { toPost, type PostRow } from "../mappers/post-row.js";
-import { decodeCursor, encodeCursor } from "./cursor.js";
+import { toPost, type PostRow } from "../mappers/post-row";
+import { decodeCursor, encodeCursor } from "./cursor";
 
 /**
  * Implementación de PostRepositoryPort contra app_role. Cada operación abre su propia
@@ -71,6 +71,7 @@ export class PostgresPostRepository implements PostRepositoryPort {
         `UPDATE posts
          SET content = COALESCE($2, content),
              scheduled_at = CASE WHEN $3 THEN $4 ELSE scheduled_at END,
+             status = CASE WHEN $3 AND $4 IS NOT NULL AND status = 'draft' THEN 'scheduled'::post_status ELSE status END,
              updated_at = now()
          WHERE id = $1 AND status <> 'published'
          RETURNING *`,
