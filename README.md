@@ -8,6 +8,10 @@ Scheduler de publicación para una plataforma de signal-based selling. Next.js (
 
 TODO — pendiente de despliegue (ver Parte C del enunciado).
 
+## Repositorio
+
+https://github.com/DavidZam0ra/ploot-backend-assessment
+
 ## Cómo levantarlo en local
 
 ```bash
