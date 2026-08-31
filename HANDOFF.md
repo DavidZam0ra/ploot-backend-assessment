@@ -183,23 +183,32 @@ importan más que los unitarios aislados):
      Vercel) y el proyecto quedó con `framework: null` al crearlo por API (arreglado con
      `app/vercel.json`). Verificado con tráfico HTTP real de punta a punta contra Postgres real
      de Supabase (crear post, listar, con un tenant/perfil sembrados a mano).
-   - ⬜ `worker/` + `provider-mock/` en Fly.io — `fly.worker.toml`/`fly.provider-mock.toml` ya
-     están en el repo, pendiente el deploy en sí (a la espera de `FLY_API_TOKEN`).
-   - Justificación de coste a 5k tenants: pendiente para la Parte B del PDF (no en el repo).
-2. **UI mínima de demostración** — no empezada (`app/src/app/page.tsx` es solo un placeholder).
-   No se evalúa el diseño, solo que sea una ventana real al backend (lista de posts casi en
-   tiempo real con polling, crear/programar, botón "publicar ahora", transiciones de estado
-   visibles, por qué de los `failed`/esperas). Ya puede consumir la API real de `app/`.
-3. **Seed de datos** (`db/README.md`) — pendiente: script que crea tenants, Embajadores, tokens
-   en los tres estados (`valid`/`expired`/`revoked`) y posts en varios estados. Sin esto, probar
-   la UI o el flujo de publicación real en `docker compose up` requiere sembrar filas a mano por
-   `psql` (como se hizo para verificar el stack dockerizado en la pieza anterior).
-4. **Las partes escritas del PDF** (van en un PDF aparte, no en el repo) — no tocadas en esta
-   sesión de código: Parte A (diseño de sistema), Parte B (despliegue y operación), Parte D
-   (elige 1 de 3 escenarios de incidente), Parte E (tabla de `DECISIONS.md` trasladada + una
-   pregunta de visión de producto + 3 líneas de qué IA se usó). Esto es ~80 de los 180 minutos
-   del enunciado y no depende de nada de código — se puede escribir en paralelo, o después,
-   independientemente de cuánto código quede terminado.
+   - ✅ `worker/` + `provider-mock/` en Fly.io — desplegados y estables, sin crash loop:
+     `provider-mock` en `https://ploot-provider-mock.fly.dev` (401 en `/provider/publish` sin
+     auth, correcto) y `ploot-worker` corriendo su ciclo de polling contra Supabase (logs sin
+     errores de conexión).
+   - Justificación de coste a 5k tenants: hecha, ver [`PARTES_ESCRITAS.md`](./PARTES_ESCRITAS.md)
+     Parte B.
+
+   **Despliegue público completo**: los tres componentes (`app/` en Vercel, Postgres en Supabase,
+   `worker/`+`provider-mock/` en Fly.io) están arriba y hablando entre sí.
+2. **UI mínima de demostración** — hecha (`app/src/app/posts-ui.tsx`, montada en `page.tsx`):
+   pantalla de "login" que pega un `tenantId`/`profileId` de un seed y firma un JWT de demo vía
+   `POST /api/dev/token` (endpoint solo de demo, comentado como tal — nunca en el contrato v1).
+   Lista de posts con polling cada 4s, formulario de creación (con `scheduledAt` opcional →
+   borrador vs programado), botones "Publicar ahora" (con `Idempotency-Key` generada) y
+   "Cancelar". Verificado de punta a punta contra `next dev` + Postgres local: crear, listar, y
+   confirmado que el aislamiento de tenant sigue intacto (una sesión solo ve sus propios posts).
+3. **Seed de datos** (`worker/scripts/seed.ts`) — hecho: crea 2 tenants, 1 Embajador cada uno
+   (uno con token `valid`, otro con token `revoked`) y posts en `published`/`scheduled`/`draft`/
+   `failed`. Corre con `worker_role` (BYPASSRLS, necesita escribir en varios tenants a la vez) —
+   `cd worker && pnpm exec tsx scripts/seed.ts` (requiere `DATABASE_URL`/`TOKEN_ENCRYPTION_KEY` en
+   el entorno). Imprime los IDs de tenant/perfil para pegarlos directamente en la UI. Verificado
+   contra Postgres local.
+4. **Las partes escritas del PDF** — hechas como borrador en [`PARTES_ESCRITAS.md`](./PARTES_ESCRITAS.md)
+   (Parte A, B, D, E) — revisar/ajustar contra el enunciado exacto antes de pegarlas en el PDF
+   final, en particular la pregunta de visión de producto de la Parte E (no tenía el texto exacto
+   a mano en esta sesión).
 
 ## Convenciones a seguir si se continúa
 
