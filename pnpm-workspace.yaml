@@ -3,3 +3,5 @@ packages:
   - "app/mock-provider"
   - "worker"
   - "packages/*"
+allowBuilds:
+  esbuild: true

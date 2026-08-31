@@ -2,6 +2,7 @@
   "name": "@ploot/core",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "Dominio y puertos hexagonales, sin dependencia de Next.js ni de Postgres. app/ y worker/ implementan los adaptadores.",
   "main": "src/index.ts",
   "types": "src/index.ts"

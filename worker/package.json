@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "start": "tsx src/main.ts",
     "test": "vitest run"
   },
   "dependencies": {
     "@ploot/core": "workspace:*",
-    "pg": "^8.11.5"
+    "pg": "^8.11.5",
+    "tsx": "^4.15.0"
   },
   "devDependencies": {
     "@ploot/mock-provider": "workspace:*",

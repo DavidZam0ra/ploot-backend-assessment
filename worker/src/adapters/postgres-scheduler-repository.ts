@@ -61,7 +61,7 @@ export class PostgresSchedulerRepository implements SchedulerRepositoryPort {
     const retryDelayMs = opts.retryDelayMs ?? 0;
     await this.pool.query(
       `UPDATE posts
-       SET status = CASE WHEN $4 THEN 'scheduled' ELSE 'failed' END,
+       SET status = CASE WHEN $4 THEN 'scheduled'::post_status ELSE 'failed'::post_status END,
            scheduled_at = CASE WHEN $4 THEN now() + ($5 || ' milliseconds')::interval ELSE scheduled_at END,
            attempt_count = attempt_count + 1,
            last_error_code = $2,

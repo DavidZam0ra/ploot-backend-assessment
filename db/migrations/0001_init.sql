@@ -90,6 +90,17 @@ create table idempotency_keys (
   primary key (tenant_id, key)
 );
 
+-- Presupuesto de rate limit por ventana fija, consultado por el worker ANTES de llamar al
+-- proveedor (no solo reaccionando a sus 429 reales, que ya sería tarde para evitar la ráfaga).
+-- `scope` es 'app' (compartido entre todos los tenants) o 'profile:<uuid>' (por Embajador) — no
+-- lleva tenant_id porque solo lo toca worker_role, nunca una request de un tenant concreto, así
+-- que no necesita RLS.
+create table rate_limit_windows (
+  scope text primary key,
+  window_start timestamptz not null,
+  count integer not null default 0
+);
+
 -- ── Aislamiento de tenant a nivel SQL (no en el Route Handler) ─────────────────────────────
 -- app_role  -> usado por la API Next.js. RLS activo siempre; el tenant se fija con
 --              `SET LOCAL app.tenant_id = '<uuid>'` al inicio de cada transacción (compatible
@@ -118,3 +129,4 @@ create policy tenant_isolation on idempotency_keys
 
 grant select, insert, update, delete on tenants, profiles, oauth_tokens, posts, idempotency_keys
   to app_role, worker_role;
+grant select, insert, update on rate_limit_windows to worker_role;

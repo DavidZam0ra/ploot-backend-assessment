@@ -1,4 +1,4 @@
-import { Post } from "../domain/post";
+import { Post } from "../domain/post.js";
 
 /**
  * Puerto usado por worker/. A diferencia de PostRepositoryPort, opera a través de todos los

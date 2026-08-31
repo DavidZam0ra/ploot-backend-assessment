@@ -1,5 +1,20 @@
 import { Pool } from "pg";
+import type { ClockPort } from "@ploot/core";
 import { seal } from "../src/crypto/token-cipher.js";
+
+/** Reloj controlable para tests deterministas (ventanas de rate limit, DST) sin esperar de verdad. */
+export class FakeClock implements ClockPort {
+  constructor(private current: Date) {}
+  now(): Date {
+    return this.current;
+  }
+  set(date: Date): void {
+    this.current = date;
+  }
+  advanceMs(ms: number): void {
+    this.current = new Date(this.current.getTime() + ms);
+  }
+}
 
 /**
  * Test de integración: necesita Postgres real arriba con el esquema de db/migrations aplicado.

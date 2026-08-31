@@ -1,4 +1,4 @@
-import { Post, PostStatus } from "../domain/post";
+import { Post, PostStatus } from "../domain/post.js";
 
 export interface CreatePostInput {
   tenantId: string;
