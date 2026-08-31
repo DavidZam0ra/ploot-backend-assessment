@@ -1,4 +1,7 @@
 {
   "name": "ploot-backend-assessment",
-  "private": true
+  "private": true,
+  "scripts": {
+    "test": "pnpm --workspace-concurrency=1 -r test"
+  }
 }
