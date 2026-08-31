@@ -107,19 +107,31 @@ export default function PostsUI() {
 
   async function publishNow(id: string) {
     if (!token) return;
-    await fetch(`/api/v1/posts/${id}/publish`, {
+    setError(null);
+    const res = await fetch(`/api/v1/posts/${id}/publish`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `ui-${id}-${Date.now()}` },
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.message ?? `No se pudo publicar (HTTP ${res.status})`);
+      return;
+    }
     fetchPosts();
   }
 
   async function cancelPost(id: string) {
     if (!token) return;
-    await fetch(`/api/v1/posts/${id}`, {
+    setError(null);
+    const res = await fetch(`/api/v1/posts/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.message ?? `No se pudo cancelar (HTTP ${res.status})`);
+      return;
+    }
     fetchPosts();
   }
 
