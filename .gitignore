@@ -7,3 +7,4 @@ dist/
 build/
 *.log
 .DS_Store
+docker-compose.override.yml

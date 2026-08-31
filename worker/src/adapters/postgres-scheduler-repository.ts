@@ -23,7 +23,7 @@ export class PostgresSchedulerRepository implements SchedulerRepositoryPort {
     const { rows } = await this.pool.query<PostRow>(
       `
       WITH ranked AS (
-        SELECT id, row_number() OVER (PARTITION BY tenant_id ORDER BY scheduled_at) AS rn
+        SELECT id, scheduled_at, row_number() OVER (PARTITION BY tenant_id ORDER BY scheduled_at) AS rn
         FROM posts
         WHERE status = 'scheduled' AND scheduled_at <= now()
       ),
