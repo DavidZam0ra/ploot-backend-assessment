@@ -1,0 +1,20 @@
+# Config de Fly.io para app/mock-provider. Contexto de build = raíz del repo (igual que
+# docker-compose.yml), por eso este fichero vive en la raíz y no dentro de app/mock-provider.
+# Deploy: flyctl deploy --config fly.provider-mock.toml
+
+app = "ploot-provider-mock"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "app/mock-provider/Dockerfile"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

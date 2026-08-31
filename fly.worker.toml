@@ -1,0 +1,16 @@
+# Config de Fly.io para worker/. Contexto de build = raíz del repo (igual que docker-compose.yml).
+# Sin http_service: el worker no expone puerto, es un proceso de polling en bucle (ver
+# worker/src/main.ts). Deploy: flyctl deploy --config fly.worker.toml
+
+app = "ploot-worker"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "worker/Dockerfile"
+
+[processes]
+  app = "node --import tsx src/main.ts"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
