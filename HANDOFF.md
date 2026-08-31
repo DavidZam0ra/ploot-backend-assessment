@@ -175,14 +175,16 @@ importan más que los unitarios aislados):
 1. **Despliegue público** — en curso (ver `DECISIONS.md` #19):
    - ✅ Postgres: proyecto real en Supabase (`eu-central-1`), esquema + `app_role`/`worker_role`
      aplicados contra la conexión real (mismos scripts de siempre, sin SQL nuevo).
-   - ✅ `app/`: proyecto Vercel creado y enlazado al repo (`main` = producción, intacta;
-     `assessment` se despliega como preview — no se mergea, per enunciado).
-     `DATABASE_URL`/`JWT_SECRET` puestos como env vars *Secret* en Vercel para `Production` +
-     la rama `assessment`.
-   - ⬜ Confirmar que el preview de Vercel sirve tráfico real de punta a punta contra Supabase
-     (pendiente en el momento de escribir esto — falta el push que dispara el build con las
-     env vars ya puestas).
-   - ⬜ `worker/` + `provider-mock/` en Fly.io — pendiente, a la espera de `FLY_API_TOKEN`.
+   - ✅ `app/`: https://ploot-backend-assessment-git-assessment-dzamora.vercel.app — proyecto
+     Vercel enlazado al repo (`main` = producción, intacta; `assessment` se despliega como
+     preview, no se mergea, per enunciado). `DATABASE_URL`/`JWT_SECRET` como env vars *Secret*.
+     Dos bugs de build reales encontrados y arreglados (ver `DECISIONS.md` #19): `next.config.mjs`
+     tenía `output: "standalone"` fijo (solo vale para el self-host en Docker, rompe el build de
+     Vercel) y el proyecto quedó con `framework: null` al crearlo por API (arreglado con
+     `app/vercel.json`). Verificado con tráfico HTTP real de punta a punta contra Postgres real
+     de Supabase (crear post, listar, con un tenant/perfil sembrados a mano).
+   - ⬜ `worker/` + `provider-mock/` en Fly.io — `fly.worker.toml`/`fly.provider-mock.toml` ya
+     están en el repo, pendiente el deploy en sí (a la espera de `FLY_API_TOKEN`).
    - Justificación de coste a 5k tenants: pendiente para la Parte B del PDF (no en el repo).
 2. **UI mínima de demostración** — no empezada (`app/src/app/page.tsx` es solo un placeholder).
    No se evalúa el diseño, solo que sea una ventana real al backend (lista de posts casi en
