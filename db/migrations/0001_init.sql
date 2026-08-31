@@ -25,15 +25,18 @@ create table profiles (
 create index profiles_tenant_idx on profiles (tenant_id);
 
 -- Tokens OAuth por Embajador. Cifrado a nivel de aplicación (AES-256-GCM): esta tabla solo
--- guarda ciphertext + nonce, nunca texto plano. La clave de cifrado vive fuera de Postgres
--- (env/KMS) para que un dump de la BD no exponga tokens por sí solo.
+-- guarda ciphertext, nunca texto plano. La clave de cifrado vive fuera de Postgres (env/KMS)
+-- para que un dump de la BD no exponga tokens por sí solo. Cada columna cifrada lleva su propio
+-- nonce embebido al principio del blob (nonce || ciphertext || authTag) en vez de compartir una
+-- columna de nonce entre las dos: con AES-GCM, cifrar dos textos distintos con la misma clave y
+-- el mismo nonce rompe la confidencialidad (y permite falsificar el authTag), así que el access
+-- token y el refresh token de una misma fila nunca pueden reusar nonce.
 create table oauth_tokens (
   profile_id uuid primary key references profiles(id) on delete cascade,
   tenant_id uuid not null references tenants(id) on delete cascade,
   status token_status not null default 'valid',
   encrypted_access_token bytea not null,
   encrypted_refresh_token bytea not null,
-  encryption_nonce bytea not null,
   expires_at timestamptz not null,
   updated_at timestamptz not null default now()
 );

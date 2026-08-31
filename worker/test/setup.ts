@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { seal } from "../src/crypto/token-cipher.js";
 
 /**
  * Test de integración: necesita Postgres real arriba con el esquema de db/migrations aplicado.
@@ -39,4 +40,46 @@ export async function seedTenantWithScheduledPost(
     profileId: profile.id as string,
     postId: post.id as string,
   };
+}
+
+export async function seedProfile(pool: Pool) {
+  const {
+    rows: [tenant],
+  } = await pool.query("INSERT INTO tenants (name) VALUES ('Test tenant') RETURNING id");
+  const {
+    rows: [profile],
+  } = await pool.query(
+    `INSERT INTO profiles (tenant_id, display_name, provider_account_id)
+     VALUES ($1, 'Test embajador', 'ext-' || gen_random_uuid()) RETURNING id`,
+    [tenant.id]
+  );
+  return { tenantId: tenant.id as string, profileId: profile.id as string };
+}
+
+export async function seedOAuthToken(
+  pool: Pool,
+  key: Buffer,
+  params: {
+    profileId: string;
+    tenantId: string;
+    status: "valid" | "expired" | "revoked";
+    accessToken: string;
+    refreshToken: string;
+    expiresAt?: Date;
+  }
+) {
+  const expiresAt = params.expiresAt ?? new Date(Date.now() + 3_600_000);
+  await pool.query(
+    `INSERT INTO oauth_tokens
+       (profile_id, tenant_id, status, encrypted_access_token, encrypted_refresh_token, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      params.profileId,
+      params.tenantId,
+      params.status,
+      seal(params.accessToken, key),
+      seal(params.refreshToken, key),
+      expiresAt,
+    ]
+  );
 }
