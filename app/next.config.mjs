@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Imagen de Docker mínima: solo el server.js standalone + node_modules podados, sin arrastrar
+  // el resto del monorepo (pnpm workspace) a la imagen final.
+  output: "standalone",
   webpack: (config) => {
     // @ploot/core usa moduleResolution: NodeNext y escribe extensión .js explícita en sus
     // imports relativos internos (obligatorio para tsc en worker/app, que sí usan NodeNext).

@@ -1,5 +1,6 @@
-# TODO: servicios app (Next.js) y worker.
 # Objetivo del enunciado: `docker compose up` completo en < 60 s en una máquina limpia.
+# Variables de entorno: copia .env.example a .env en la raíz y rellena TOKEN_ENCRYPTION_KEY
+# (ver el comentario junto a esa variable más abajo). El resto tiene defaults de desarrollo.
 
 services:
   postgres:
@@ -8,31 +9,24 @@ services:
       POSTGRES_USER: ploot
       POSTGRES_PASSWORD: ploot
       POSTGRES_DB: ploot
+      # Leídas por db/docker-init-roles.sh en el primer arranque (volumen nuevo) para fijar la
+      # contraseña real de app_role/worker_role — ver db/bootstrap-roles.sql.
+      APP_ROLE_PASSWORD: ${APP_ROLE_PASSWORD:-app_role_dev_password}
+      WORKER_ROLE_PASSWORD: ${WORKER_ROLE_PASSWORD:-worker_role_dev_password}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Orden alfabético: el esquema (01) tiene que existir antes de que el script de roles (02)
+      # pueda hacer ALTER ROLE sobre app_role/worker_role.
+      - ./db/migrations/0001_init.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/docker-init-roles.sh:/docker-entrypoint-initdb.d/02-bootstrap-roles.sh:ro
+      - ./db/bootstrap-roles.sql:/opt/ploot/bootstrap-roles.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ploot"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-  # app:
-  #   build: ./app
-  #   ports:
-  #     - "3000:3000"
-  #   env_file: .env
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-
-  # worker:
-  #   build: ./worker
-  #   env_file: .env
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
 
   provider-mock:
     build:
@@ -42,6 +36,37 @@ services:
       - "4000:4000"
     environment:
       PORT: 4000
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://app_role:${APP_ROLE_PASSWORD:-app_role_dev_password}@postgres:5432/ploot
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-do-not-use-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://worker_role:${WORKER_ROLE_PASSWORD:-worker_role_dev_password}@postgres:5432/ploot
+      PROVIDER_BASE_URL: http://provider-mock:4000
+      # Sin valor por defecto a propósito (ver worker/.env.example): nunca hardcodear una clave
+      # de cifrado. Genera una con:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?falta TOKEN_ENCRYPTION_KEY en .env, ver worker/.env.example}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      provider-mock:
+        condition: service_started
 
 volumes:
   pgdata:

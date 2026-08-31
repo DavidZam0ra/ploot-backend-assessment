@@ -23,8 +23,16 @@ git clone git@github.com:DavidZam0ra/ploot-backend-assessment.git
 cd ploot-backend-assessment
 git checkout assessment
 pnpm install
+cp .env.example .env   # ver comentarios dentro; los defaults ya sirven para local
 docker compose up -d postgres provider-mock
 ```
+
+Esquema y roles (`app_role`/`worker_role`) se aplican **solos** al crear el volumen por primera
+vez — `db/migrations/0001_init.sql` y `db/bootstrap-roles.sql` corren como
+`docker-entrypoint-initdb.d/*` del contenedor de Postgres (`db/docker-init-roles.sh` es el
+wrapper que le pasa `APP_ROLE_PASSWORD`/`WORKER_ROLE_PASSWORD` desde el entorno del contenedor).
+Ya no hace falta aplicar nada a mano con `psql`; solo se re-ejecuta si se borra el volumen
+(`docker compose down -v`).
 
 Si el puerto 5432 ya está ocupado por otro Postgres local (pasó en este PC: un Postgres nativo de
 Windows), crea `docker-compose.override.yml` (gitignorado) con:
@@ -36,53 +44,47 @@ services:
       - "5433:5432"
 ```
 
-y usa el puerto que corresponda en las `DATABASE_URL` de abajo.
-
-Aplicar el esquema (primera vez, o si se recreó el volumen):
-
-```bash
-PORT=5433  # o 5432 si no hiciste el override
-psql "postgres://ploot:ploot@localhost:$PORT/ploot" -f db/migrations/0001_init.sql
-psql "postgres://ploot:ploot@localhost:$PORT/ploot" \
-  -v app_role_password="app_role_test_password" \
-  -v worker_role_password="worker_role_test_password" \
-  -f db/bootstrap-roles.sql
-```
-
-(`db/bootstrap-roles.sql` le da contraseña real a `app_role`/`worker_role` — sin esto, los tests
-de aislamiento de tenant no pueden conectarse como `app_role` para probar RLS de verdad; un
-superusuario se salta RLS.)
+y usa el puerto que corresponda en las `DATABASE_URL`/`TEST_DATABASE_URL` de abajo.
 
 Correr toda la suite de tests (usa la raíz, no cada paquete suelto — ver por qué en
-`DECISIONS.md` #14):
+`DECISIONS.md` #14). Las contraseñas son las mismas que pusiste en `.env` de la raíz
+(`APP_ROLE_PASSWORD`/`WORKER_ROLE_PASSWORD`, `app_role_dev_password`/`worker_role_dev_password`
+por defecto):
 
 ```bash
 TEST_DATABASE_URL="postgres://ploot:ploot@localhost:5433/ploot" \
-TEST_APP_ROLE_DATABASE_URL="postgres://app_role:app_role_test_password@localhost:5433/ploot" \
+TEST_APP_ROLE_DATABASE_URL="postgres://app_role:app_role_dev_password@localhost:5433/ploot" \
 pnpm test
 ```
 
-Debería dar **72/72 tests en verde** (12 mock-provider + 22 app + 38 worker) y `tsc --noEmit`
-limpio en `app/`, `worker/`, `app/mock-provider/`.
+Debería dar **89/89 tests en verde** (12 mock-provider + 27 app + 38 worker, más 12 de
+`packages/core`) y `tsc --noEmit` limpio en `app/`, `worker/`, `app/mock-provider/`.
 
-Arrancar el worker de verdad (bucle de publicación):
+Arrancar el worker de verdad (bucle de publicación), o la API (`app/`, Next.js dev server), fuera
+de Docker para iterar con hot-reload:
 
 ```bash
-cd worker
-cp .env.example .env   # y rellena TOKEN_ENCRYPTION_KEY con:
-                        # node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-                        # y DATABASE_URL con el puerto correcto (5433 si hiciste el override)
+cd worker && cp .env.example .env   # TOKEN_ENCRYPTION_KEY (genera una, ver el propio fichero)
+                                     # y DATABASE_URL con el puerto correcto si hiciste el override
 pnpm start
-```
 
-Arrancar la API (`app/`, Next.js dev server):
-
-```bash
-cd app
-cp .env.example .env   # DATABASE_URL con app_role + el puerto correcto, y JWT_SECRET (cualquier
-                        # string en local, ver src/auth/jwt.ts)
+cd app && cp .env.example .env      # DATABASE_URL con app_role + el puerto correcto, y JWT_SECRET
 pnpm dev
 ```
+
+O levantar el stack completo dockerizado (`app`+`worker`+`postgres`+`provider-mock`, ver
+`docker-compose.yml` y `DECISIONS.md` #18) con un solo comando:
+
+```bash
+docker compose up --build
+```
+
+Verificado en frío (`docker compose down -v` + `docker compose up --build -d`): ~40 s hasta los
+4 contenedores arriba (dentro del objetivo de <60 s del enunciado), roles bootstrapeados solos,
+`app` respondiendo 200 en `:3000`, `worker` arrancando su ciclo de polling sin errores de
+conexión — probado además de punta a punta por HTTP real contra la API dockerizada (crear
+post, listar, publicar ahora) con el worker real reclamándolo y fallando de forma esperada por
+falta de token OAuth sembrado (`TOKEN_REVOKED`, comportamiento correcto, no un crash).
 
 No hay IdP: los JWT de prueba se firman a mano con `signTestToken` (`app/src/auth/jwt.ts`) —
 desde un script/REPL de Node con `tsx`, o añadiendo un endpoint de test temporal si hace falta
@@ -141,6 +143,16 @@ decide a qué tenant pertenece cada request.
 11. **Idempotencia en `POST /publish`**: `PostgresIdempotencyStore` implementa `IdempotencyPort`
     contra `app_role` (`INSERT ... ON CONFLICT DO NOTHING RETURNING` como primitiva atómica). 4
     tests de integración, incluida una prueba de dos `reserve()` concurrentes con la misma clave.
+12. **`docker-compose.yml` completo** (`app`+`worker`+`postgres`+`provider-mock`):
+    `Dockerfile` nuevo en `app/` (build multi-stage con `next build` en modo `standalone`, imagen
+    final sin pnpm ni el resto del monorepo) y en `worker/` (sin paso de compilación, corre
+    `tsx` en runtime igual que en local, ver `DECISIONS.md` #12). `db/docker-init-roles.sh` se
+    engancha como `docker-entrypoint-initdb.d/02-*` de Postgres para fijar la contraseña de
+    `app_role`/`worker_role` desde variables de entorno (`APP_ROLE_PASSWORD`/
+    `WORKER_ROLE_PASSWORD` en `.env` de la raíz) — ya no hace falta el paso manual de `psql` que
+    describían las versiones anteriores de este documento. Verificado en frío: `docker compose
+    up --build` completo en ~40 s, y probado de punta a punta por HTTP real contra la API
+    dockerizada con el worker real reclamando el post.
 
 **Bugs reales encontrados y arreglados al conectar piezas** (ver `DECISIONS.md` #11 para el
 detalle — vale la pena leerlo, ilustra por qué los tests de integración de extremo a extremo
@@ -156,7 +168,7 @@ importan más que los unitarios aislados):
 
 **Decisiones de arquitectura**: todas documentadas con su alternativa descartada y su coste en
 [`DECISIONS.md`](./DECISIONS.md) — es la tabla que pide la Parte E del PDF, ya bastante rellena
-(14 filas). Léelo antes de tomar decisiones nuevas, para no contradecir algo ya razonado.
+(18 filas). Léelo antes de tomar decisiones nuevas, para no contradecir algo ya razonado.
 
 ## Qué falta, en el orden de prioridad que marca el propio PDF
 
@@ -165,13 +177,14 @@ importan más que los unitarios aislados):
    justificar en el PDF con coste de orden de magnitud a 5k tenants. `worker/` corre con
    `tsx src/main.ts` (ver `DECISIONS.md` #12) — cualquier host de contenedores vale, no necesita
    build compilado.
-2. **`docker-compose.yml` completo** — de momento solo tiene `postgres` y `provider-mock`
-   funcionando. Faltan los servicios `app` y `worker` (hay placeholders comentados en el
-   fichero). El objetivo del enunciado es `docker compose up` completo en <60s en máquina limpia.
-3. **UI mínima de demostración** — no empezada (`app/src/app/page.tsx` es solo un placeholder).
+2. **UI mínima de demostración** — no empezada (`app/src/app/page.tsx` es solo un placeholder).
    No se evalúa el diseño, solo que sea una ventana real al backend (lista de posts casi en
    tiempo real con polling, crear/programar, botón "publicar ahora", transiciones de estado
    visibles, por qué de los `failed`/esperas). Ya puede consumir la API real de `app/`.
+3. **Seed de datos** (`db/README.md`) — pendiente: script que crea tenants, Embajadores, tokens
+   en los tres estados (`valid`/`expired`/`revoked`) y posts en varios estados. Sin esto, probar
+   la UI o el flujo de publicación real en `docker compose up` requiere sembrar filas a mano por
+   `psql` (como se hizo para verificar el stack dockerizado en la pieza anterior).
 4. **Las partes escritas del PDF** (van en un PDF aparte, no en el repo) — no tocadas en esta
    sesión de código: Parte A (diseño de sistema), Parte B (despliegue y operación), Parte D
    (elige 1 de 3 escenarios de incidente), Parte E (tabla de `DECISIONS.md` trasladada + una
@@ -196,8 +209,8 @@ importan más que los unitarios aislados):
 - Nunca hacer `git push` sin pedirlo explícitamente; sí hacer commit al cerrar cada pieza.
 
 ---
-Última actualización: piezas completadas hasta idempotencia en `POST /publish` (API HTTP +
-auth JWT + idempotencia, ver `DECISIONS.md` #16-17) — 89/89 tests en verde, probado también de
-punta a punta por HTTP real contra `next dev` (crear, listar, publicar ahora, cancelar,
-aislamiento cross-tenant). Aún sin commitear en el momento de escribir esto. Se sigue
-actualizando este documento después de cada pieza nueva.
+Última actualización: piezas completadas hasta `docker-compose.yml` completo (API HTTP + auth
+JWT + idempotencia + Dockerfiles de `app`/`worker` + bootstrap automático de roles, ver
+`DECISIONS.md` #16-18) — 89/89 tests en verde, probado de punta a punta por HTTP real tanto
+contra `next dev` como contra el stack dockerizado completo (`docker compose up --build`, ~40 s
+en frío). Se sigue actualizando este documento después de cada pieza nueva.

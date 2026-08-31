@@ -15,12 +15,15 @@ https://github.com/DavidZam0ra/ploot-backend-assessment
 ## Cómo levantarlo en local
 
 ```bash
-docker compose up
+cp .env.example .env   # ver comentarios dentro; los defaults ya sirven para local
+docker compose up --build
 ```
 
-Levanta app + worker + Postgres + mock del proveedor con seed en < 60 s.
-
-TODO — completar cuando el `docker-compose.yml` esté implementado.
+Levanta Postgres (esquema + roles `app_role`/`worker_role` aplicados solos al crear el volumen)
++ el mock del proveedor + `app` (Next.js) + `worker`, verificado en frío en ~40 s. `app` queda en
+`http://localhost:3000`, el mock del proveedor en `http://localhost:4000`. Sin JWT válido (no hay
+IdP, ver `app/src/auth/jwt.ts`) y sin datos sembrados, la API responde pero no hay tenants/posts
+todavía — falta el script de seed (ver `HANDOFF.md`).
 
 ## Estructura del repo
 
