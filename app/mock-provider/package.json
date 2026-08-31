@@ -1,20 +1,17 @@
 {
-  "name": "worker",
+  "name": "@ploot/mock-provider",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/main.js",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@ploot/core": "workspace:*",
-    "pg": "^8.11.5"
-  },
   "devDependencies": {
-    "@ploot/mock-provider": "workspace:*",
     "@types/node": "^20.14.0",
-    "@types/pg": "^8.11.6",
     "typescript": "^5.4.5",
     "vitest": "^4.1.11"
   }

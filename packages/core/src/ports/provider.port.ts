@@ -15,6 +15,6 @@ export interface RefreshedToken {
  * TokenExpiredError / TokenRevokedError según corresponda.
  */
 export interface ProviderPort {
-  publish(accessToken: string, content: string): Promise<PublishResult>;
-  refresh(refreshToken: string): Promise<RefreshedToken>;
+  publish(profileId: string, accessToken: string, content: string): Promise<PublishResult>;
+  refresh(profileId: string, refreshToken: string): Promise<RefreshedToken>;
 }

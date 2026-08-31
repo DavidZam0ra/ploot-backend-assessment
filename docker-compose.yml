@@ -1,6 +1,4 @@
-version: "3.9"
-
-# TODO: servicios app (Next.js), worker, postgres y mock del proveedor.
+# TODO: servicios app (Next.js) y worker.
 # Objetivo del enunciado: `docker compose up` completo en < 60 s en una máquina limpia.
 
 services:
@@ -36,10 +34,14 @@ services:
   #     postgres:
   #       condition: service_healthy
 
-  # provider-mock:
-  #   build: ./app/mock-provider
-  #   ports:
-  #     - "4000:4000"
+  provider-mock:
+    build:
+      context: .
+      dockerfile: app/mock-provider/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
 
 volumes:
   pgdata:
